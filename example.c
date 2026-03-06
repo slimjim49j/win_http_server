@@ -1,4 +1,4 @@
-#include "http.h"
+#include "http.c"
 
 #ifndef UNICODE
 #define UNICODE
@@ -19,9 +19,6 @@
 
 #pragma comment(lib, "httpapi.lib")
 
-//
-// Macros.
-//
 #define INITIALIZE_HTTP_RESPONSE(resp, status, reason) \
  do                                                    \
  {                                                     \
@@ -29,7 +26,7 @@
   (resp)->StatusCode = (status);                       \
   (resp)->pReason = (reason);                          \
   (resp)->ReasonLength = (USHORT)strlen(reason);       \
- } while (FALSE)
+ } while (0)
 
 #define ADD_KNOWN_HEADER(Response, HeaderId, RawValue)         \
  do                                                            \
@@ -38,47 +35,42 @@
       (RawValue);                                              \
   (Response).Headers.KnownHeaders[(HeaderId)].RawValueLength = \
       (USHORT)strlen(RawValue);                                \
- } while (FALSE)
+ } while (0)
 
 #define ALLOC_MEM(cb) HeapAlloc(GetProcessHeap(), 0, (cb))
 
 #define FREE_MEM(ptr) HeapFree(GetProcessHeap(), 0, (ptr))
 
 DWORD SendHttpResponse(
-    IN HANDLE hReqQueue,
-    IN PHTTP_REQUEST pRequest,
-    IN USHORT StatusCode,
-    IN PSTR pReason,
-    IN PSTR pEntityString)
+    HANDLE ReqQueue,
+    PHTTP_REQUEST Req,
+    uint16_t StatusCode,
+    char *Reason,
+    char *EntityString)
 {
  HTTP_RESPONSE response;
  HTTP_DATA_CHUNK dataChunk;
  DWORD result;
  DWORD bytesSent;
 
- //
- // Initialize the HTTP response structure.
- //
- INITIALIZE_HTTP_RESPONSE(&response, StatusCode, pReason);
-
- //
- // Add a known header.
- //
+ INITIALIZE_HTTP_RESPONSE(&response, StatusCode, Reason);
  ADD_KNOWN_HEADER(response, HttpHeaderContentType, "text/html");
 
- if (pEntityString)
+ if (EntityString)
  {
   //
   // Add an entity chunk.
   //
   dataChunk.DataChunkType = HttpDataChunkFromMemory;
-  dataChunk.FromMemory.pBuffer = pEntityString;
+  dataChunk.FromMemory.pBuffer = EntityString;
   dataChunk.FromMemory.BufferLength =
-      (ULONG)strlen(pEntityString);
+      (ULONG)strlen(EntityString);
 
   response.EntityChunkCount = 1;
   response.pEntityChunks = &dataChunk;
  }
+
+ Req->CookedUrl;
 
  //
  // Because the entity body is sent in one call, it is not
@@ -86,8 +78,8 @@ DWORD SendHttpResponse(
  //
 
  result = HttpSendHttpResponse(
-     hReqQueue,           // ReqQueueHandle
-     pRequest->RequestId, // Request ID
+     ReqQueue,           // ReqQueueHandle
+     Req->RequestId, // Request ID
      0,                   // Flags
      &response,           // HTTP response
      NULL,                // pReserved1
@@ -108,9 +100,8 @@ DWORD SendHttpResponse(
 
 #define MAX_ULONG_STR ((ULONG)sizeof("4294967295"))
 
-DWORD SendHttpPostResponse(
-    IN HANDLE hReqQueue,
-    IN PHTTP_REQUEST pRequest)
+DWORD
+SendHttpPostResponse(HANDLE hReqQueue, PHTTP_REQUEST pRequest)
 {
  HTTP_RESPONSE response;
  DWORD result;
@@ -193,7 +184,7 @@ DWORD SendHttpPostResponse(
    goto Done;
   }
 
-  do
+  for (;;)
   {
    //
    // Read the entity chunk from the request.
@@ -211,7 +202,7 @@ DWORD SendHttpPostResponse(
    switch (result)
    {
    case NO_ERROR:
-
+   {
     if (BytesRead != 0)
     {
      TotalBytesRead += BytesRead;
@@ -223,9 +214,9 @@ DWORD SendHttpPostResponse(
          NULL);
     }
     break;
-
+   }
    case ERROR_HANDLE_EOF:
-
+   {
     //
     // The last request entity body has been read.
     // Send back a response.
@@ -270,8 +261,7 @@ DWORD SendHttpPostResponse(
         HttpHeaderContentLength,
         szContentLength);
 
-    result =
-        HttpSendHttpResponse(
+    result = HttpSendHttpResponse(
             hReqQueue,           // ReqQueueHandle
             pRequest->RequestId, // Request ID
             HTTP_SEND_RESPONSE_FLAG_MORE_DATA,
@@ -295,14 +285,9 @@ DWORD SendHttpPostResponse(
     //
     // Send entity body from a file handle.
     //
-    dataChunk.DataChunkType =
-        HttpDataChunkFromFileHandle;
-
+    dataChunk.DataChunkType = HttpDataChunkFromFileHandle;
     dataChunk.FromFileHandle.ByteRange.StartingOffset.QuadPart = 0;
-
-    dataChunk.FromFileHandle.ByteRange.Length.QuadPart =
-        HTTP_BYTE_RANGE_TO_EOF;
-
+    dataChunk.FromFileHandle.ByteRange.Length.QuadPart = HTTP_BYTE_RANGE_TO_EOF;
     dataChunk.FromFileHandle.FileHandle = hTempFile;
 
     result = HttpSendResponseEntityBody(
@@ -319,29 +304,22 @@ DWORD SendHttpPostResponse(
 
     if (result != NO_ERROR)
     {
-     wprintf(
-         L"HttpSendResponseEntityBody failed %lu\n",
-         result);
+     wprintf(L"HttpSendResponseEntityBody failed %lu\n", result);
     }
-
     goto Done;
-
     break;
-
+   }
    default:
-    wprintf(
-        L"HttpReceiveRequestEntityBody failed with %lu \n",
-        result);
+   {
+    wprintf(L"HttpReceiveRequestEntityBody failed with %lu \n", result);
     goto Done;
    }
-
-  } while (TRUE);
+   }
+  }
  }
  else
  {
   // This request does not have an entity body.
-  //
-
   result = HttpSendHttpResponse(
       hReqQueue,           // ReqQueueHandle
       pRequest->RequestId, // Request ID
@@ -356,8 +334,7 @@ DWORD SendHttpPostResponse(
   );
   if (result != NO_ERROR)
   {
-   wprintf(L"HttpSendHttpResponse failed with %lu \n",
-           result);
+   wprintf(L"HttpSendHttpResponse failed with %lu \n", result);
   }
  }
 
@@ -402,37 +379,22 @@ DoReceiveRequests(HANDLE hReqQueue)
 
  pRequest = (PHTTP_REQUEST)pRequestBuffer;
 
- //
  // Wait for a new request. This is indicated by a NULL
  // request ID.
- //
-
  HTTP_SET_NULL_ID(&requestId);
 
  for (;;)
  {
   RtlZeroMemory(pRequest, RequestBufferLength);
 
-  result = HttpReceiveHttpRequest(
-      hReqQueue,           // Req Queue
-      requestId,           // Req ID
-      0,                   // Flags
-      pRequest,            // HTTP request buffer
-      RequestBufferLength, // req buffer length
-      &bytesRead,          // bytes received
-      NULL                 // LPOVERLAPPED
-  );
+  result = HttpReceiveHttpRequest(hReqQueue, requestId, 0, pRequest, RequestBufferLength, &bytesRead, NULL);
   if (NO_ERROR == result)
   {
-   //
    // Worked!
-   //
    switch (pRequest->Verb)
    {
    case HttpVerbGET:
-    wprintf(L"Got a GET request for %ws \n",
-            pRequest->CookedUrl.pFullUrl);
-
+    wprintf(L"Got a GET request for %ws \n", pRequest->CookedUrl.pFullUrl);
     result = SendHttpResponse(
         hReqQueue,
         pRequest,
@@ -443,16 +405,12 @@ DoReceiveRequests(HANDLE hReqQueue)
 
    case HttpVerbPOST:
 
-    wprintf(L"Got a POST request for %ws \n",
-            pRequest->CookedUrl.pFullUrl);
-
+    wprintf(L"Got a POST request for %ws \n", pRequest->CookedUrl.pFullUrl);
     result = SendHttpPostResponse(hReqQueue, pRequest);
     break;
 
    default:
-    wprintf(L"Got a unknown request for %ws \n",
-            pRequest->CookedUrl.pFullUrl);
-
+    wprintf(L"Got a unknown request for %ws \n", pRequest->CookedUrl.pFullUrl);
     result = SendHttpResponse(
         hReqQueue,
         pRequest,
@@ -467,9 +425,7 @@ DoReceiveRequests(HANDLE hReqQueue)
     break;
    }
 
-   //
    // Reset the Request ID to handle the next request.
-   //
    HTTP_SET_NULL_ID(&requestId);
   }
   else if (result == ERROR_MORE_DATA)
@@ -582,18 +538,12 @@ wmain(int argc, wchar_t *argv[])
   }
   else
   {
-   //
-   // Track the currently added URLs.
-   //
    UrlAdded++;
   }
  }
  DoReceiveRequests(hReqQueue);
 CleanUp:
 
- //
- // Call HttpRemoveUrl for all added URLs.
- //
  for (int i = 1; i <= UrlAdded; i++)
  {
   HttpRemoveUrl(
@@ -602,17 +552,10 @@ CleanUp:
   );
  }
 
- //
- // Close the Request Queue handle.
- //
  if (hReqQueue)
  {
   CloseHandle(hReqQueue);
  }
-
- //
- // Call HttpTerminate.
- //
  HttpTerminate(HTTP_INITIALIZE_SERVER, NULL);
 
  return retCode;
