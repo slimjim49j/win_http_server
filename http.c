@@ -38,6 +38,13 @@
 #define ALLOC_MEM(cb) HeapAlloc(GetProcessHeap(), 0, (cb))
 #define FREE_MEM(ptr) HeapFree(GetProcessHeap(), 0, (ptr))
 
+typedef struct http_fpath http_fpath;
+struct http_fpath
+{
+ wchar_t Path[MAX_PATH];
+ uint32_t Ln;
+};
+
 typedef struct http_ctx http_ctx;
 struct http_ctx
 {
@@ -45,44 +52,61 @@ struct http_ctx
  wchar_t *Uri;
  void *RequestBuffer;
  uint32_t RequestBufferLn;
+ HTTP_REQUEST *Req;
 };
 
 enum { MinRequestBufferLn = sizeof(HTTP_REQUEST) + 2048 };
 
-static uint32_t
-HttpRespond(
-    HANDLE ReqQueue,
-    PHTTP_REQUEST Req,
-    uint16_t StatusCode,
-    char *Reason,
-    char *EntityString)
+static http_fpath
+HttpResolveFpathFromWStr(wchar_t *Path)
 {
- HTTP_RESPONSE response;
- HTTP_DATA_CHUNK dataChunk;
- DWORD result;
+ http_fpath Ret = {0};
+ Ret.Ln = GetFullPathNameW(Path, MAX_PATH, Ret.Path, 0);
+ return Ret;
+}
+
+static void
+HttpResolveReqFpath(http_ctx *Ctx, http_fpath *BaseDir, http_fpath *Out)
+{
+ wchar_t CatStr[MAX_PATH] = {0};
+ wcscat_s(CatStr, MAX_PATH, BaseDir->Path);
+ wcsncat_s(CatStr, MAX_PATH, Ctx->Req->CookedUrl.pAbsPath, Ctx->Req->CookedUrl.AbsPathLength);
+
+ Out->Ln = GetFullPathNameW(CatStr, MAX_PATH, Out->Path, 0);
+ if (Out->Ln < BaseDir->Ln)
+ {
+  *Out = (http_fpath){0};
+ }
+}
+
+static uint32_t
+HttpRespond(http_ctx *Ctx, uint16_t StatusCode, char *Body, uint32_t BodyLn)
+{
+ HTTP_RESPONSE Response;
+ HTTP_DATA_CHUNK DataChunk;
+ DWORD Result;
  DWORD bytesSent;
 
- INITIALIZE_HTTP_RESPONSE(&response, StatusCode, Reason);
- ADD_KNOWN_HEADER(response, HttpHeaderContentType, "text/html");
+ INITIALIZE_HTTP_RESPONSE(&Response, StatusCode, "");
+ ADD_KNOWN_HEADER(Response, HttpHeaderContentType, "text/html");
 
- if (EntityString)
+ if (Body)
  {
-  dataChunk.DataChunkType = HttpDataChunkFromMemory;
-  dataChunk.FromMemory.pBuffer = EntityString;
-  dataChunk.FromMemory.BufferLength =
-      (ULONG)strlen(EntityString);
+  DataChunk.DataChunkType = HttpDataChunkFromMemory;
+  DataChunk.FromMemory.pBuffer = Body;
+  DataChunk.FromMemory.BufferLength = BodyLn;
 
-  response.EntityChunkCount = 1;
-  response.pEntityChunks = &dataChunk;
+  Response.EntityChunkCount = 1;
+  Response.pEntityChunks = &DataChunk;
  }
 
  // Because the entity body is sent in one call, it is not
  // required to specify the Content-Length.
- result = HttpSendHttpResponse(
-     ReqQueue,           // ReqQueueHandle
-     Req->RequestId, // Request ID
+ Result = HttpSendHttpResponse(
+     Ctx->ReqQueue,           // ReqQueueHandle
+     Ctx->Req->RequestId, // Request ID
      0,                   // Flags
-     &response,           // HTTP response
+     &Response,           // HTTP response
      NULL,                // pReserved1
      &bytesSent,          // bytes sent  (OPTIONAL)
      NULL,                // pReserved2  (must be NULL)
@@ -91,12 +115,12 @@ HttpRespond(
      NULL                 // pReserved4  (must be NULL)
  );
 
- if (result != NO_ERROR)
+ if (Result != NO_ERROR)
  {
-  wprintf(L"HttpSendHttpResponse failed with %lu \n", result);
+  wprintf(L"HttpSendHttpResponse failed with %lu \n", Result);
  }
 
- return result;
+ return Result;
 }
 
 static uint32_t
@@ -145,19 +169,19 @@ HttpInit(http_ctx *Ctx, void *RequestBuffer, uint32_t RequestBufferLn)
 static uint32_t
 HttpRecv(http_ctx *Ctx)
 {
- uint32_t Ret = 0;
+ uint32_t Ret = 1;
+ Ctx->Req = (HTTP_REQUEST *)Ctx->RequestBuffer;
  HANDLE ReqQueue = Ctx->ReqQueue;
  HTTP_REQUEST_ID RequestId;
- DWORD BytesRead;
- PHTTP_REQUEST Req = (PHTTP_REQUEST)Ctx->RequestBuffer;
-
  // Wait for a new request. This is indicated by a NULL request ID.
  HTTP_SET_NULL_ID(&RequestId);
- // RtlZeroMemory(Req, Ctx->RequestBufferLn);
+ DWORD BytesRead;
 
- if (!HttpReceiveHttpRequest(ReqQueue, RequestId, HTTP_RECEIVE_REQUEST_FLAG_FLUSH_BODY, Req, Ctx->RequestBufferLn, &BytesRead, NULL))
+ // RtlZeroMemory(Req, Ctx->RequestBufferLn);
+ if (HttpReceiveHttpRequest(ReqQueue, RequestId, HTTP_RECEIVE_REQUEST_FLAG_FLUSH_BODY, Ctx->Req, Ctx->RequestBufferLn, &BytesRead, NULL))
  {
-  Ret = 1;
+  Ret = 0;
+  Ctx->Req = 0;
  }
 
  return Ret;
