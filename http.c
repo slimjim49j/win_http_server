@@ -103,16 +103,16 @@ HttpRespond(http_ctx *Ctx, uint16_t StatusCode, char *ContentType, char *Body, u
  // Because the entity body is sent in one call, it is not
  // required to specify the Content-Length.
  Result = HttpSendHttpResponse(
-     Ctx->ReqQueue,           // ReqQueueHandle
-     Ctx->Req->RequestId, // Request ID
-     0,                   // Flags
-     &Response,           // HTTP response
-     NULL,                // pReserved1
-     &bytesSent,          // bytes sent  (OPTIONAL)
-     NULL,                // pReserved2  (must be NULL)
-     0,                   // Reserved3   (must be 0)
-     NULL,                // LPOVERLAPPED(OPTIONAL)
-     NULL                 // pReserved4  (must be NULL)
+  Ctx->ReqQueue,       // ReqQueueHandle
+  Ctx->Req->RequestId, // Request ID
+  0,                   // Flags
+  &Response,           // HTTP response
+  NULL,                // pReserved1
+  &bytesSent,          // bytes sent  (OPTIONAL)
+  NULL,                // pReserved2  (must be NULL)
+  0,                   // Reserved3   (must be 0)
+  NULL,                // LPOVERLAPPED(OPTIONAL)
+  NULL                 // pReserved4  (must be NULL)
  );
 
  if (Result != NO_ERROR)
