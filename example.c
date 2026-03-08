@@ -48,7 +48,7 @@ wmain(int Argc, wchar_t *Argv[])
   return ERROR_INVALID_PARAMETER;
  }
 
- if (HttpInit(&Ctx, RequestBuffer, MinRequestBufferLn))
+ if (HttpInit(&Ctx, RequestBuffer, MinRequestBufferLn, 3000))
  {
   for (;;)
   {

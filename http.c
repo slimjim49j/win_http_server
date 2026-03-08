@@ -1,21 +1,23 @@
 #pragma once
 
 #ifndef UNICODE
-#define UNICODE
+# define UNICODE
 #endif
 
 #ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0600
+# define _WIN32_WINNT 0x0600
 #endif
 
 #ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
+# define WIN32_LEAN_AND_MEAN
 #endif
 
 #include <windows.h>
 #include <http.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+
+#define HttpArrLn(Arr) (sizeof(Arr) / sizeof(Arr[0]))
 
 #define HttpInitResponse(resp, status, reason)         \
  do                                                    \
@@ -46,7 +48,7 @@ typedef struct http_ctx http_ctx;
 struct http_ctx
 {
  HANDLE ReqQueue;
- wchar_t *Uri;
+ wchar_t Uri[256];
  void *RequestBuffer;
  uint32_t RequestBufferLn;
  HTTP_REQUEST *Req;
@@ -79,6 +81,7 @@ HttpResolveReqFpath(http_ctx *Ctx, http_fpath *BaseDir, http_fpath *Out)
 static uint32_t
 HttpRespond(http_ctx *Ctx, uint16_t StatusCode, char *ContentType, char *Body, uint32_t BodyLn)
 {
+ uint32_t Ret = 1;
  HTTP_RESPONSE Response;
  HTTP_DATA_CHUNK DataChunk;
  DWORD Result;
@@ -114,20 +117,31 @@ HttpRespond(http_ctx *Ctx, uint16_t StatusCode, char *ContentType, char *Body, u
 
  if (Result != NO_ERROR)
  {
-  wprintf(L"HttpSendHttpResponse failed with %lu \n", Result);
+  // wprintf(L"HttpSendHttpResponse failed with %lu \n", Result);
+  Ret = 0;
  }
 
- return Result;
+ return Ret;
 }
 
 static uint32_t
-HttpInit(http_ctx *Ctx, void *RequestBuffer, uint32_t RequestBufferLn)
+HttpInit(http_ctx *Ctx, void *RequestBuffer, uint32_t RequestBufferLn, uint32_t Port)
 {
  if (!RequestBuffer || RequestBufferLn < 0)
  {
   return 0;
  }
- Ctx->Uri = L"http://127.0.0.1:3000/";
+
+ {
+  wchar_t *UriPart = L"http://127.0.0.1:";
+  wchar_t PortStr[_MAX_ULTOSTR_BASE10_COUNT] = {0};
+  _ultow(Port, PortStr, 10);
+  wchar_t *PathPart = L"/";
+  memset(Ctx->Uri, 0, HttpArrLn(Ctx->Uri));
+  wcsncat_s(Ctx->Uri, HttpArrLn(Ctx->Uri), UriPart, wcslen(UriPart));
+  wcsncat_s(Ctx->Uri, HttpArrLn(Ctx->Uri), PortStr, wcslen(PortStr));
+  wcsncat_s(Ctx->Uri, HttpArrLn(Ctx->Uri), PathPart, wcslen(PathPart));
+ }
  Ctx->RequestBuffer = RequestBuffer;
  Ctx->RequestBufferLn = RequestBufferLn;
  ULONG RetCode;
