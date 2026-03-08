@@ -4,6 +4,9 @@
 
 #include "pathcch.h"
 
+#define AllocMem(cb) HeapAlloc(GetProcessHeap(), 0, (cb))
+#define FreeMem(ptr) HeapFree(GetProcessHeap(), 0, (ptr))
+
 static wchar_t *
 GetInputDir(int Argc, wchar_t *Argv[])
 {
@@ -28,7 +31,7 @@ int __cdecl
 wmain(int Argc, wchar_t *Argv[])
 {
  http_ctx Ctx = {0};
- void *RequestBuffer = ALLOC_MEM(MinRequestBufferLn);
+ void *RequestBuffer = AllocMem(MinRequestBufferLn);
  if (!RequestBuffer)
  {
   return ERROR_NOT_ENOUGH_MEMORY;
@@ -40,6 +43,10 @@ wmain(int Argc, wchar_t *Argv[])
   return ERROR_INVALID_PARAMETER;
  }
  http_fpath BaseDir = HttpResolveFpathFromWStr(InputDir);
+ if (!BaseDir.Ln)
+ {
+  return ERROR_INVALID_PARAMETER;
+ }
 
  if (HttpInit(&Ctx, RequestBuffer, MinRequestBufferLn))
  {
@@ -53,12 +60,12 @@ wmain(int Argc, wchar_t *Argv[])
     if (FilePath.Ln)
     {
      char *Body = "My response";
-     HttpRespond(&Ctx, 200, Body, strlen(Body));
+     HttpRespond(&Ctx, 200, "text/html", Body, strlen(Body));
     }
     else
     {
      char *Body = "Bad Request";
-     HttpRespond(&Ctx, 400, Body, strlen(Body));
+     HttpRespond(&Ctx, 400, "text/html", Body, strlen(Body));
     }
    }
   }

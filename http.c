@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define INITIALIZE_HTTP_RESPONSE(resp, status, reason) \
+#define HttpInitResponse(resp, status, reason)         \
  do                                                    \
  {                                                     \
   RtlZeroMemory((resp), sizeof(*(resp)));              \
@@ -26,7 +26,7 @@
   (resp)->ReasonLength = (USHORT)strlen(reason);       \
  } while (0)
 
-#define ADD_KNOWN_HEADER(Response, HeaderId, RawValue)         \
+#define HttpAddHeader(Response, HeaderId, RawValue)            \
  do                                                            \
  {                                                             \
   (Response).Headers.KnownHeaders[(HeaderId)].pRawValue =      \
@@ -34,9 +34,6 @@
   (Response).Headers.KnownHeaders[(HeaderId)].RawValueLength = \
       (USHORT)strlen(RawValue);                                \
  } while (0)
-
-#define ALLOC_MEM(cb) HeapAlloc(GetProcessHeap(), 0, (cb))
-#define FREE_MEM(ptr) HeapFree(GetProcessHeap(), 0, (ptr))
 
 typedef struct http_fpath http_fpath;
 struct http_fpath
@@ -80,15 +77,15 @@ HttpResolveReqFpath(http_ctx *Ctx, http_fpath *BaseDir, http_fpath *Out)
 }
 
 static uint32_t
-HttpRespond(http_ctx *Ctx, uint16_t StatusCode, char *Body, uint32_t BodyLn)
+HttpRespond(http_ctx *Ctx, uint16_t StatusCode, char *ContentType, char *Body, uint32_t BodyLn)
 {
  HTTP_RESPONSE Response;
  HTTP_DATA_CHUNK DataChunk;
  DWORD Result;
  DWORD bytesSent;
 
- INITIALIZE_HTTP_RESPONSE(&Response, StatusCode, "");
- ADD_KNOWN_HEADER(Response, HttpHeaderContentType, "text/html");
+ HttpInitResponse(&Response, StatusCode, "");
+ HttpAddHeader(Response, HttpHeaderContentType, ContentType);
 
  if (Body)
  {
@@ -140,14 +137,14 @@ HttpInit(http_ctx *Ctx, void *RequestBuffer, uint32_t RequestBufferLn)
  RetCode = HttpInitialize(HttpApiVersion, HTTP_INITIALIZE_SERVER, NULL);
  if (RetCode != NO_ERROR)
  {
-  wprintf(L"HttpInitialize failed with %lu \n", RetCode);
+  // wprintf(L"HttpInitialize failed with %lu \n", RetCode);
   return 0;
  }
 
  RetCode = HttpCreateHttpHandle(&Ctx->ReqQueue, 0);
  if (RetCode != NO_ERROR)
  {
-  wprintf(L"HttpCreateHttpHandle failed with %lu \n", RetCode);
+  // wprintf(L"HttpCreateHttpHandle failed with %lu \n", RetCode);
   return 0;
  }
 
@@ -155,7 +152,7 @@ HttpInit(http_ctx *Ctx, void *RequestBuffer, uint32_t RequestBufferLn)
 
  if (RetCode != NO_ERROR)
  {
-  wprintf(L"HttpAddUrl failed with %lu \n", RetCode);
+  // wprintf(L"HttpAddUrl failed with %lu \n", RetCode);
   return 0;
  }
  else
