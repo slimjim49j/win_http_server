@@ -188,7 +188,6 @@ HttpRecv(http_ctx *Ctx)
  HTTP_SET_NULL_ID(&RequestId);
  DWORD BytesRead;
 
- // RtlZeroMemory(Req, Ctx->RequestBufferLn);
  if (HttpReceiveHttpRequest(ReqQueue, RequestId, HTTP_RECEIVE_REQUEST_FLAG_FLUSH_BODY, Ctx->Req, Ctx->RequestBufferLn, &BytesRead, NULL))
  {
   Ret = 0;

@@ -1,8 +1,5 @@
 #include "http.c"
 #pragma comment(lib, "httpapi.lib")
-#pragma comment(lib, "pathcch.lib")
-
-#include "pathcch.h"
 
 #define AllocMem(cb) HeapAlloc(GetProcessHeap(), 0, (cb))
 #define FreeMem(ptr) HeapFree(GetProcessHeap(), 0, (ptr))
