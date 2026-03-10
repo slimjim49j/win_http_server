@@ -135,7 +135,7 @@ HttpInit(http_ctx *Ctx, void *RequestBuffer, uint32_t RequestBufferLn, uint32_t 
  {
   wchar_t *UriPart = L"http://127.0.0.1:";
   wchar_t PortStr[_MAX_ULTOSTR_BASE10_COUNT] = {0};
-  _ultow(Port, PortStr, 10);
+  _ultow_s(Port, PortStr, HttpArrLn(PortStr), 10);
   wchar_t *PathPart = L"/";
   memset(Ctx->Uri, 0, HttpArrLn(Ctx->Uri));
   wcsncat_s(Ctx->Uri, HttpArrLn(Ctx->Uri), UriPart, wcslen(UriPart));
