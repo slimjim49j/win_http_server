@@ -1,6 +1,7 @@
 #include "http.c"
 #include "mime.c"
 #include <stdio.h>
+#include <assert.h>
 #pragma comment(lib, "httpapi.lib")
 
 #define AllocMem(cb) HeapAlloc(GetProcessHeap(), 0, (cb))
@@ -16,7 +17,7 @@ DebugReadFile(LPCWSTR Name, uint32_t *BytesRead)
   LARGE_INTEGER FileSize;
   if (GetFileSizeEx(FileHandle, &FileSize))
   {
-   // Assert(FileSize.QuadPart < 0xffffffff);
+   assert(FileSize.QuadPart < 0xffffffff);
    void *FileMemory = VirtualAlloc(0, FileSize.QuadPart, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
    if (FileMemory)
    {
