@@ -677,7 +677,7 @@ MimeLookupExtnW(wchar_t *Str)
    while (L <= R)
    {
     uint32_t M = L + ((R - L) / 2);
-    int8_t Res = MimeStrCmp(Str, (char *)MimeTab[M][0]);
+    int32_t Res = MimeStrCmp(Str, (char *)MimeTab[M][0]);
     if (Res > 0)
     {
      L = M + 1;
