@@ -1,4 +1,4 @@
-# Windows Server API Example
+# Easy Windows HTTP Static File Server
 
 The point of this is to have a quick and easy library for giving the primitives necessary to make an http server for static files in a given directory.
 
