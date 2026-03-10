@@ -1,4 +1,4 @@
-#include "http.c"
+#include "http_server.c"
 #include "mime.c"
 #include <stdio.h>
 #include <assert.h>
@@ -84,6 +84,7 @@ wmain(int Argc, wchar_t *Argv[])
 
  if (HttpInit(&Ctx, RequestBuffer, MinRequestBufferLn, 3000))
  {
+  printf("Running at: %S\n", Ctx.Uri);
   for (;;)
   {
    if (HttpRecv(&Ctx))
