@@ -1,4 +1,8 @@
 #pragma once
+#define UNICODE
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#include <PathCch.h>
 #include <stdint.h>
 
 #define MimeArrLn(Arr) (sizeof(Arr) / sizeof((Arr)[0]))
@@ -663,7 +667,7 @@ MimeStrCmp(wchar_t *W, char *S)
 // Str should point to . character
 // https://research.google/blog/extra-extra-read-all-about-it-nearly-all-binary-searches-and-mergesorts-are-broken/
 static char *
-MimeLookupW(wchar_t *Str)
+MimeLookupExtnW(wchar_t *Str)
 {
  char *Ret = 0;
  if (*Str++ == '.')
@@ -688,6 +692,25 @@ MimeLookupW(wchar_t *Str)
      break;
     }
    }
+ }
+ return Ret;
+}
+
+// Ln must include null char
+static char *
+MimeLookupPathW(wchar_t *Path, size_t Ln)
+{
+ char *Ret = 0;
+ wchar_t *Extn = 0;
+ HRESULT Res = PathCchFindExtension(Path, Ln, &Extn);
+ if (Res == S_OK)
+ {
+  Ret = MimeLookupExtnW(Extn);
+ }
+
+ if (!Ret)
+ {
+  Ret = "application/octet-stream";
  }
  return Ret;
 }

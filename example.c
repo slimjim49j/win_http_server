@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <assert.h>
 #pragma comment(lib, "httpapi.lib")
+#pragma comment(lib, "pathcch.lib")
 
 #define AllocMem(cb) HeapAlloc(GetProcessHeap(), 0, (cb))
 #define FreeMem(ptr) HeapFree(GetProcessHeap(), 0, (ptr))
@@ -92,8 +93,19 @@ wmain(int Argc, wchar_t *Argv[])
 
     if (FilePath.Ln)
     {
-     char *Body = "My response";
-     HttpRespond(&Ctx, 200, "text/html", Body, (uint32_t)strlen(Body));
+     uint32_t BytesRead = 0;
+     char *Body = DebugReadFile(FilePath.Path, &BytesRead);
+     if (Body)
+     {
+      char *MimeType = MimeLookupPathW(FilePath.Path, FilePath.Ln + 1);
+      HttpRespond(&Ctx, 200, MimeType, Body, BytesRead);
+      VirtualFree(Body, 0, MEM_RELEASE);
+     }
+     else
+     {
+      Body = "Not Found";
+      HttpRespond(&Ctx, 404, "text/html", Body, (uint32_t)strlen(Body));
+     }
     }
     else
     {
