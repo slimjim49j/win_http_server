@@ -109,4 +109,3 @@ int wmain(int argc, wchar_t const *argv[])
  printf("%d tests passed, %d tests failed.\n", TestCnt - FailCnt, FailCnt);
  return 0;
 }
-
