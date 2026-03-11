@@ -52,6 +52,7 @@ struct http_ctx
  void *RequestBuffer;
  uint32_t RequestBufferLn;
  HTTP_REQUEST *Req;
+ OVERLAPPED Ov;
 };
 
 enum { MinRequestBufferLn = sizeof(HTTP_REQUEST) + 2048 };
@@ -144,6 +145,7 @@ HttpInit(http_ctx *Ctx, void *RequestBuffer, uint32_t RequestBufferLn, uint32_t 
  }
  Ctx->RequestBuffer = RequestBuffer;
  Ctx->RequestBufferLn = RequestBufferLn;
+ Ctx->Ov = (OVERLAPPED){.hEvent = CreateEventW(0, TRUE, FALSE, 0)};
  ULONG RetCode;
  int32_t UrlAdded = 0;
  HTTPAPI_VERSION HttpApiVersion = HTTPAPI_VERSION_1;
@@ -181,14 +183,40 @@ static uint32_t
 HttpRecv(http_ctx *Ctx)
 {
  uint32_t Ret = 1;
+ ResetEvent(Ctx->Ov.hEvent);
  Ctx->Req = (HTTP_REQUEST *)Ctx->RequestBuffer;
  HANDLE ReqQueue = Ctx->ReqQueue;
  HTTP_REQUEST_ID RequestId;
  // Wait for a new request. This is indicated by a NULL request ID.
  HTTP_SET_NULL_ID(&RequestId);
  DWORD BytesRead;
-
- if (HttpReceiveHttpRequest(ReqQueue, RequestId, HTTP_RECEIVE_REQUEST_FLAG_FLUSH_BODY, Ctx->Req, Ctx->RequestBufferLn, &BytesRead, NULL))
+ HRESULT Res = HttpReceiveHttpRequest(ReqQueue, RequestId, HTTP_RECEIVE_REQUEST_FLAG_FLUSH_BODY, Ctx->Req, Ctx->RequestBufferLn, &BytesRead, &Ctx->Ov);
+ if (Res == ERROR_IO_PENDING)
+ {
+  DWORD TimeoutMs = 1000;
+  DWORD Wait = WaitForSingleObject(Ctx->Ov.hEvent, TimeoutMs);
+  if (Wait == WAIT_OBJECT_0)
+  {
+   DWORD Bytes = 0;
+   if (GetOverlappedResult(ReqQueue, &Ctx->Ov, &Bytes, 0))
+   {
+    // success
+   }
+   else
+   {
+    // error
+    Ret = 0;
+    Ctx->Req = 0;
+   }
+  }
+  else
+  {
+   // error or timeout
+   Ret = 0;
+   Ctx->Req = 0;
+  }
+ }
+ else
  {
   Ret = 0;
   Ctx->Req = 0;
@@ -200,6 +228,7 @@ HttpRecv(http_ctx *Ctx)
 static void
 HttpRelease(http_ctx *Ctx)
 {
+ CloseHandle(Ctx->Ov.hEvent);
  HttpRemoveUrl(Ctx->ReqQueue, Ctx->Uri);
  if (Ctx->ReqQueue)
  {
