@@ -16,6 +16,7 @@
 #include <http.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define HttpArrLn(Arr) (sizeof(Arr) / sizeof(Arr[0]))
 
@@ -125,24 +126,16 @@ HttpRespond(http_ctx *Ctx, uint16_t StatusCode, char *ContentType, char *Body, u
  return Ret;
 }
 
+// Uri must be fully qualified: https://learn.microsoft.com/en-us/windows/win32/http/urlprefix-strings
 static uint32_t
-HttpInit(http_ctx *Ctx, void *RequestBuffer, uint32_t RequestBufferLn, uint32_t Port)
+HttpInit(http_ctx *Ctx, void *RequestBuffer, uint32_t RequestBufferLn, wchar_t *Uri)
 {
  if (!RequestBuffer || RequestBufferLn < 0)
  {
   return 0;
  }
 
- {
-  wchar_t *UriPart = L"http://127.0.0.1:";
-  wchar_t PortStr[_MAX_ULTOSTR_BASE10_COUNT] = {0};
-  _ultow_s(Port, PortStr, HttpArrLn(PortStr), 10);
-  wchar_t *PathPart = L"/";
-  memset(Ctx->Uri, 0, HttpArrLn(Ctx->Uri));
-  wcsncat_s(Ctx->Uri, HttpArrLn(Ctx->Uri), UriPart, wcslen(UriPart));
-  wcsncat_s(Ctx->Uri, HttpArrLn(Ctx->Uri), PortStr, wcslen(PortStr));
-  wcsncat_s(Ctx->Uri, HttpArrLn(Ctx->Uri), PathPart, wcslen(PathPart));
- }
+ wcscpy_s(Ctx->Uri, HttpArrLn(Ctx->Uri), Uri);
  Ctx->RequestBuffer = RequestBuffer;
  Ctx->RequestBufferLn = RequestBufferLn;
  Ctx->Ov = (OVERLAPPED){.hEvent = CreateEventW(0, TRUE, FALSE, 0)};

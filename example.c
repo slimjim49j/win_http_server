@@ -82,7 +82,7 @@ wmain(int Argc, wchar_t *Argv[])
   return ERROR_INVALID_PARAMETER;
  }
 
- if (HttpInit(&Ctx, RequestBuffer, MinRequestBufferLn, 3000))
+ if (HttpInit(&Ctx, RequestBuffer, MinRequestBufferLn, L"http://127.0.0.1:3000/"))
  {
   printf("Running at: %S\n", Ctx.Uri);
   for (;;)
